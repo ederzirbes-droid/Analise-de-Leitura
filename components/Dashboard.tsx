@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { AnalysisResult, RouteData } from '../types';
-import { Info, Users, TrendingUp, TrendingDown, ChevronUp, ChevronDown, ArrowUpDown, Filter, MapPin, Ban, History, BarChart2, Minus, AlertTriangle, UserPlus, UserMinus, Power, Layers, Hash, FileText } from 'lucide-react';
+import { Info, Users, TrendingUp, TrendingDown, ChevronUp, ChevronDown, ArrowUpDown, Filter, MapPin, Ban, History, BarChart2, Minus, AlertTriangle, UserPlus, UserMinus, Power, Layers, Hash, FileText, AlertCircle } from 'lucide-react';
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -24,6 +24,9 @@ const Dashboard: React.FC<DashboardProps> = ({ data, aiInsight }) => {
   // Estados para os filtros específicos da seção de divergências
   const [divergenceRouteFilter, setDivergenceRouteFilter] = useState<string>('all');
   const [divergenceMgFilter, setDivergenceMgFilter] = useState<string>('all');
+
+  // Estado para o filtro de ocorrências recorrentes
+  const [recurringOccFilter, setRecurringOccFilter] = useState<string>('all');
 
   // Cálculo do resumo comparativo por rota (Focado apenas nas rotas do Mês Atual)
   const routeComparisonSummary = useMemo(() => {
@@ -114,6 +117,40 @@ const Dashboard: React.FC<DashboardProps> = ({ data, aiInsight }) => {
     return results.sort((a, b) => a.rota.localeCompare(b.rota, undefined, { numeric: true }));
   }, [data.currentMonth, data.previousMonth]);
 
+  // RELATÓRIO DE OCORRÊNCIAS RECORRENTES (Sem exclusões fixas)
+  const allRecurringOccurrences = useMemo(() => {
+    const prevMap = new Map<string, string>();
+    data.previousMonth.forEach(u => prevMap.set(u.codigoUc, u.descricaoNaoLeitura?.trim().toUpperCase()));
+
+    return data.currentMonth
+      .filter(u => {
+        const currentOcc = u.descricaoNaoLeitura?.trim().toUpperCase();
+        const prevOcc = prevMap.get(u.codigoUc);
+        
+        // Verifica se a ocorrência existe e é igual à do mês passado
+        return currentOcc && currentOcc === prevOcc;
+      })
+      .map(u => ({
+        uc: u.codigoUc,
+        nome: u.consumidorNome,
+        rota: u.codigoRota,
+        ocorrencia: u.descricaoNaoLeitura
+      }));
+  }, [data.currentMonth, data.previousMonth]);
+
+  // Lista única de ocorrências que são recorrentes para o filtro
+  const uniqueRecurringOptions = useMemo(() => {
+    const options = Array.from(new Set(allRecurringOccurrences.map(o => o.ocorrencia)))
+      .sort((a, b) => a.localeCompare(b));
+    return options;
+  }, [allRecurringOccurrences]);
+
+  // Aplicação do filtro de ocorrência selecionada
+  const filteredRecurringOccurrences = useMemo(() => {
+    if (recurringOccFilter === 'all') return allRecurringOccurrences;
+    return allRecurringOccurrences.filter(o => o.ocorrencia === recurringOccFilter);
+  }, [allRecurringOccurrences, recurringOccFilter]);
+
   const handleSort = <T,>(
     key: keyof T, 
     currentConfig: SortConfig<T>, 
@@ -153,8 +190,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, aiInsight }) => {
 
     if (!ucSort.key) return items;
     return items.sort((a, b) => {
-      const aVal = a[ucSort.key!] ?? 0;
-      const bVal = b[ucSort.key!] ?? 0;
+      // Fix: cast the dynamic indexed property access to 'any' to avoid the 'unknown' type error during comparison.
+      // TypeScript sometimes struggles to narrow types when indexing generic objects without a fixed schema at runtime.
+      const aVal = (a[ucSort.key!] as any) ?? 0;
+      const bVal = (b[ucSort.key!] as any) ?? 0;
       if (typeof aVal === 'string' && typeof bVal === 'string') return ucSort.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       return ucSort.direction === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
     });
@@ -350,7 +389,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, aiInsight }) => {
         </div>
       </div>
 
-      {/* NOVO RELATÓRIO: Detalhamento de Divergências de Cadastro */}
+      {/* RELATÓRIO: Detalhamento de Divergências de Cadastro */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-amber-50/30">
           <div className="flex items-center gap-4">
@@ -466,10 +505,80 @@ const Dashboard: React.FC<DashboardProps> = ({ data, aiInsight }) => {
             </tbody>
           </table>
         </div>
-        <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-500 font-medium italic">
-            * Este relatório mostra exatamente quais clientes saíram ou entraram em cada rota comparado ao mês anterior.
-          </p>
+      </div>
+
+      {/* RELATÓRIO: Ocorrências Recorrentes (COM FILTRO) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-6 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-red-50/20">
+          <div className="flex items-center gap-3">
+            <div className="bg-red-100 p-2 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">Detalhamento de Ocorrências Recorrentes</h3>
+              <p className="text-xs text-slate-500">Filtragem dinâmica de impedimentos crônicos de leitura</p>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-white border border-red-200 rounded-lg px-3 py-1.5 shadow-sm min-w-[200px]">
+              <Ban className="w-4 h-4 text-red-500" />
+              <span className="text-[10px] font-bold text-red-600 uppercase">Ocorrência:</span>
+              <select 
+                value={recurringOccFilter} 
+                onChange={(e) => setRecurringOccFilter(e.target.value)} 
+                className="text-sm font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none flex-1 truncate"
+              >
+                <option value="all">Todas as Recorrentes</option>
+                {uniqueRecurringOptions.map(occ => <option key={occ} value={occ}>{occ}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 bg-white border border-red-200 rounded-lg px-3 py-1.5 shadow-sm">
+               <Hash className="w-3.5 h-3.5 text-red-400" />
+               <span className="text-sm font-bold text-red-700">{filteredRecurringOccurrences.length}</span>
+               <span className="text-[10px] font-bold text-red-500 uppercase tracking-tighter">Casos</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+          <table className="w-full text-left">
+            <thead className="bg-white border-b border-slate-200 sticky top-0 z-10">
+              <tr>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Código UC</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Consumidor</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Rota</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ocorrência</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredRecurringOccurrences.map((item, idx) => (
+                <tr key={idx} className="hover:bg-red-50/30 transition-colors">
+                  <td className="px-6 py-4 text-sm font-mono text-slate-600">{item.uc}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-700">{item.nome}</td>
+                  <td className="px-6 py-4 text-sm text-center text-slate-500">{item.rota}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-red-600">
+                    <span className="inline-block bg-red-100/50 px-2 py-1 rounded">
+                      {item.ocorrencia}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {filteredRecurringOccurrences.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic">
+                    Nenhuma ocorrência recorrente detectada para os filtros selecionados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-100">
+           <p className="text-[10px] text-slate-400 italic font-medium leading-relaxed">
+             * Este relatório identifica unidades que apresentaram o mesmo status de leitura em ambos os meses. 
+             Use o filtro acima para isolar impedimentos específicos (como impedimentos de acesso ou desvios) que persistem no faturamento.
+           </p>
         </div>
       </div>
 

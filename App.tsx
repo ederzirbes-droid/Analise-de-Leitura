@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef } from 'react';
-import { Upload, FileCheck, BarChart3, AlertCircle, FileText, RefreshCw, FolderOpen } from 'lucide-react';
+import { Upload, FileCheck, BarChart3, AlertCircle, FileText, RefreshCw, FolderOpen, Mail, Copyright } from 'lucide-react';
 import { AnalysisResult, RouteData, ComparisonRow } from './types';
 import Dashboard from './components/Dashboard';
 import { GoogleGenAI } from "@google/genai";
@@ -83,15 +83,13 @@ const App: React.FC = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // Filtrar apenas unidades do mês atual para totais globais (já garantido pela estrutura do merge, mas reforçado aqui)
       const totalConsumoAtual = result.currentMonth.reduce((acc, curr) => acc + curr.consumoMes, 0);
       const totalConsumoAnterior = result.currentMonth.reduce((acc, curr) => acc + curr.consumoMes1, 0);
       const totalInjetadaAtual = result.currentMonth.reduce((acc, curr) => acc + curr.injetadaAtual, 0);
       const totalInjetadaAnterior = result.currentMonth.reduce((acc, curr) => acc + curr.injetadaAnterior, 0);
 
-      // Filtrar apenas rotas que possuem leituras no mês atual para anomalias
       const activeRouteAnomalies = result.comparison
-        .filter(r => r.qtdAtual > 0 && Math.abs(r.percentual) > 15) // Focar em rotas ativas com variação relevante
+        .filter(r => r.qtdAtual > 0 && Math.abs(r.percentual) > 15)
         .slice(0, 10)
         .map(r => `Rota ${r.rota}: ${r.qtdAtual} UCs faturadas (variação de ${r.percentual}% vs histórico)`)
         .join('; ');
@@ -226,14 +224,14 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
-      <header className="bg-indigo-700 text-white py-6 px-8 shadow-lg mb-8">
+      <header className="bg-indigo-700 text-white py-6 px-8 shadow-lg">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-lg">
               <BarChart3 className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Analise de Leitura</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Análise de Leitura</h1>
               <p className="text-indigo-100 text-sm">Controle de Consumo e GD</p>
             </div>
           </div>
@@ -244,6 +242,24 @@ const App: React.FC = () => {
           )}
         </div>
       </header>
+      
+      {/* AVISO DE DIREITOS E CRÉDITOS */}
+      <div className="bg-slate-100 border-b border-slate-200 py-3 px-8 mb-8">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 font-medium">
+          <div className="flex items-center gap-2">
+            <Copyright className="w-3.5 h-3.5" />
+            <span>Todos Direitos Reservados.</span>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6">
+            <span>Desenvolvido por <strong className="text-slate-700">Éder Derli Zirbes</strong></span>
+            <div className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-default">
+              <Mail className="w-3.5 h-3.5" />
+              <span>ederzirbes@gmail.com</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {!analysisResult ? (
           <div className="max-w-3xl mx-auto mt-12">

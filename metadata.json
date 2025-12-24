@@ -1,0 +1,5 @@
+{
+  "name": "Analise de Leitura",
+  "description": "A sophisticated tool for comparing monthly logistics data from CSV/Excel files, featuring route-based quantity analysis, inconsistency reporting, and interactive visualizations.",
+  "requestFramePermissions": []
+}
